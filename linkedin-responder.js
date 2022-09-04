@@ -4,7 +4,7 @@ require('dotenv').config();
 
 (async () => {
     const browser = await puppeteer.launch({
-        headless: !!!process.env.HEADLESS,
+        headless: false,
         defaultViewport: {
             width: 1000,
             height: 720
@@ -237,6 +237,8 @@ async function formatAnswer(name, message, isFirstMessage) {
     let names = name.match(/(.*)\s(.*)/);
     let response;
 
+    return await openAIAnswer(name, message);
+
     for(let i = 0; i < answers.length; i++) {
         if(answers[i].matchs && (new RegExp('\\b' + answers[i].matchs.join('\\b|\\b') + '\\b', 'i') ).test(message) ) {
             if(answers[i].isFirstMessage) {
@@ -265,6 +267,29 @@ async function formatAnswer(name, message, isFirstMessage) {
     }
 
     return response;
+}
+
+async function openAIAnswer(nom, message) {
+    return new Promise(async (resolve) => {
+        const { Configuration, OpenAIApi } = require("openai");
+
+        const configuration = new Configuration({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+        const openai = new OpenAIApi(configuration);
+
+        const response = await openai.createCompletion({
+            model: "text-davinci-002",
+            prompt: "Human s'appelle " + nom + " et AI s'appelles Thomas et parle en Francais.\nHuman: " + message + "\nAI:",
+            temperature: 1,
+            max_tokens: 150,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0.6,
+            stop: ["Human:", "AI:"]
+        });
+        resolve(response.data.choices[0].text.trim());
+    })
 }
 
 /**
