@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "dotenv": "^16.0.2",
+    "puppeteer": "^17.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  },
+  "name": "linkedin-responder",
+  "version": "1.0.0",
+  "description": "Responder for Linkedin Standard",
+  "main": "linkedin-responder.js",
+  "scripts": {
+    "start": "node linkedin-responder.js",
+    "dev": "set HEADLESS=false && nodemon linkedin-responder.js --ignore cookies.json"
+  },
+  "author": "absmoca",
+  "license": "MIT"
+}

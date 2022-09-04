@@ -1,0 +1,14 @@
+[
+    {
+        "matchs": ["webinar", "coaching session"],
+        "response": "Hi {firstname},\nThanks for your suggestion but I'm not interested."
+    },
+    {
+        "isFirstMessage": true,
+        "response": "Hello {firstname},\nThank you for your message. Unfortunately I get a lot of mugging on linkedin.\n\nIf you want to contact me for a serious proposal contact me here:\ntest@mail.org\n06 00 00 00 00\n\nThank you !"
+    },
+    {
+        "isFirstMessage": false,
+        "response": "I will read your message as soon as possible."
+    }
+]
