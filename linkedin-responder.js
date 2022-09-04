@@ -218,7 +218,7 @@ async function formatAnswer(name, message, isFirstMessage) {
     let response;
 
     for(let i = 0; i < answers.length; i++) {
-        if(answers[i].matchs && (new RegExp('\\b' + answers[i].matchs.join('\\b|\\b') + '\\b') ).test(message) ) {
+        if(answers[i].matchs && (new RegExp('\\b' + answers[i].matchs.join('\\b|\\b') + '\\b', 'i') ).test(message) ) {
             if(answers[i].isFirstMessage) {
                 if(answers[i].isFirstMessage === isFirstMessage) {
                     response = answers[i].response;
