@@ -94,45 +94,51 @@ async function authentification(page, mail, password) {
 }
 
 /**
- * Detect new messages and send to formatAnswer
+ * Detect new messages and send to answerMessage
  * @param {Page} page 
  */
-async function waitNewMessages(page) {
+async function waitNewMessages(page) {    
+    let newMessageReceivedTimeout = Date.now();
+    let inTyping = false;
+
+    console.log('Waiting for new messages...');
+
     page.evaluate(() => {
-        let newMessageReceivedTimeout = Date.now();
-        let inTyping = false;
-        document.querySelector('.msg-conversations-container__conversations-list').addEventListener('DOMSubtreeModified', testMessage);
+        document.querySelector('.msg-conversations-container__conversations-list').addEventListener('DOMSubtreeModified', () => domUpdated('true'));
+    });
 
-        // FORCE REFRESH #BUG FROM LINKEDIN
-        setInterval(() => {
-            if (inTyping) return;
-            if(document.querySelector('.msg-overlay-list-bubble--is-minimized')) {
-                document.querySelector('.msg-overlay-bubble-header__details').click();
-            }
-            setTimeout(() => {
-                if (inTyping) return;
-                document.querySelector('.msg-overlay-bubble-header__controls button').click();
-                setTimeout(() => {
-                    if (inTyping) return;
-                    document.querySelectorAll('.artdeco-dropdown__item')[2].click();
-                    setTimeout(() => {
-                        if (inTyping) return;
-                        document.querySelector('.msg-message-request-list-header-presenter__back-button').click();
-                        setTimeout(() => testMessage(true), 1000);
-                    }, 500);
-                }, 500);
-            }, 500);
-        }, 30000);
+    page.on('request', (request) => {
+        if(request.url().match(/voyagerMessagingDashMessageDelivery/)) {
+            setTimeout(async () => {
+                if(Date.now() - newMessageReceivedTimeout > 1500 && !inTyping) {
+                    refreshMessages(page);
+                } else {
+                    testMessage(page);
+                }
+            }, 1000);
+        }
+    });
 
-        function testMessage(force = false) {
-            if (inTyping) return;
-            if (Date.now() - newMessageReceivedTimeout < 5000 && !force) return;
-            if (Date.now() - newMessageReceivedTimeout < 1000 && force) return;
-            newMessageReceivedTimeout = Date.now();
-            
+    page.exposeFunction('domUpdated', async () => newMessageReceivedTimeout = Date.now());
+    
+    page.exposeFunction('refreshEnded', async () => testMessage(page));
+
+    page.exposeFunction('newMessageReceived', async(name, message, isFirstMessage) => {
+        if(inTyping) return;
+        inTyping = true;
+
+        console.log(name, message, isFirstMessage);
+
+        const response = await formatAnswer(name, message, isFirstMessage);
+        if(response) {
+            await answerMessage(page, response);
+            inTyping = false;
+        }
+    });
+
+    function testMessage(page) {
+        page.evaluate(() => {
             document.querySelectorAll('section.msg__list .msg-conversation-listitem a')[0].click();
-
-            // Last Event
             setTimeout(() => {
                 try {
                     let nbProfils = document.querySelectorAll('.msg-s-message-list-content .msg-s-event-listitem__link').length;
@@ -142,29 +148,38 @@ async function waitNewMessages(page) {
                     let lastMessage = document.querySelectorAll('.msg-s-event-listitem__message-bubble')[nbMessages - 1];
         
                     // If last message is minimum 6 caracters and if is not from me
-                    if (lastMessage.innerText.length > 5 && lastProfil.href === document.querySelector('.msg-thread__link-to-profile').href) {
-                        inTyping = true;
+                    if (lastMessage.innerText.length > 10 && lastProfil.href === document.querySelector('.msg-thread__link-to-profile').href) {
                         newMessageReceived(
                             lastProfil.querySelector('img').title,
                             lastMessage.innerText,
                             nbProfils <= 2
                         );
-                        setTimeout(() => {
-                            inTyping = false;
-                        }, 10000);
                     }
                 } catch(e) {}
             }, 300);
-        }
-    });
+        });
+    }
+}
 
-    page.exposeFunction('newMessageReceived', async(name, message, isFirstMessage) => {
-        console.log(name, message, isFirstMessage);
-
-        const response = await formatAnswer(name, message, isFirstMessage);
-        if(response) {
-            await answerMessage(page, response);
+/**
+ * Force refresh messages list because their page is buggy
+ * @param {Page} page 
+ */
+function refreshMessages(page) {
+    page.evaluate(() => {
+        if(document.querySelector('.msg-overlay-list-bubble--is-minimized')) {
+            document.querySelector('.msg-overlay-bubble-header__details').click();
         }
+        setTimeout(() => {
+            document.querySelector('.msg-overlay-bubble-header__controls button').click();
+            setTimeout(() => {
+                document.querySelectorAll('.artdeco-dropdown__item')[2].click();
+                setTimeout(() => {
+                    document.querySelector('.msg-message-request-list-header-presenter__back-button').click();
+                    setTimeout(() => refreshEnded(), 1000);
+                }, 500);
+            }, 500);
+        }, 500);
     });
 }
 
@@ -183,26 +198,31 @@ async function waitForDelay(ms) {
  * @param {string} message 
  */
 async function answerMessage(page, message) {
-    await page.evaluate(() => document.querySelectorAll('section.msg__list .msg-conversation-listitem a')[0].click());
-    await waitForDelay(500);
-    try {
-        await page.click('.msg-form__contenteditable');
-        await page.keyboard.type(message);
+    return new Promise(async (resolve) => {
+        await page.evaluate(() => document.querySelectorAll('section.msg__list .msg-conversation-listitem a')[0].click());
         await waitForDelay(500);
-        await page.click('.msg-form__send-button');
-
-        /* PATCHED
-        if (process.env.UNREAD_AFTER_SEND == 'true') {
-            await waitForDelay(1000);
-            await page.evaluate(() => {
-                document.querySelector('.msg-thread-actions__control').click();
-                setTimeout(() => {
-                    document.querySelectorAll('.msg-thread-actions__dropdown-container .msg-thread-actions__dropdown-option')[2].click();
-                }, 100);
-            });
+        try {
+            await page.click('.msg-form__contenteditable');
+            await page.keyboard.type(message);
+            await waitForDelay(500);
+            await page.click('.msg-form__send-button');
+            setTimeout(() => resolve(true), 1000);
+    
+            /* PATCHED
+            if (process.env.UNREAD_AFTER_SEND == 'true') {
+                await waitForDelay(1000);
+                await page.evaluate(() => {
+                    document.querySelector('.msg-thread-actions__control').click();
+                    setTimeout(() => {
+                        document.querySelectorAll('.msg-thread-actions__dropdown-container .msg-thread-actions__dropdown-option')[2].click();
+                    }, 100);
+                });
+            }
+            */
+        } catch(e) {
+            resolve(false);
         }
-        */
-    } catch(e) {}
+    });
 }
 
 /**
