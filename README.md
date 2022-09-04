@@ -56,13 +56,38 @@ The recommended way is to use pm2
 
 ## Problems
 
-If you have a Captcha at the opening of LinkedIn, launch in headless mode with
-```sh
-  npm run dev
-```
-and once connected you can relaunch normal way.
+- If you have a Captcha at the opening of LinkedIn, launch in headless mode with
+>```sh
+>  npm run dev
+>```
+>and once connected you can relaunch normal way.
+>
+>If you do not have a graphical interface, connect you to your machine and copy the **cookies.json** file to the server.
 
-If you do not have a graphical interface, connect you to your machine and copy the **cookies.json** file to the server/
+
+- If you have an error at launch (Error: Failed to launch the browser process!)
+> Replace
+>```js
+>const browser = await puppeteer.launch({
+>        headless: !!!process.env.HEADLESS,
+>        defaultViewport: {
+>            width: 1000,
+>            height: 720
+>        }
+>});
+>```
+> 
+>```js
+>const browser = await puppeteer.launch({
+>        headless: !!!process.env.HEADLESS,
+>        defaultViewport: {
+>            width: 1000,
+>            height: 720
+>        },
+>        args: ['--no-sandbox']
+>});
+>```
+
 
 ## Contributing
 
